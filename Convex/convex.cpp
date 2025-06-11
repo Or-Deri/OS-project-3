@@ -15,7 +15,7 @@ void Convex::remove_vx(float x, float y)
     }
 }
 
-int Convex::calculate_distance(Point a, Point b)
+float Convex::calculate_distance(Point a, Point b)
 {
     return ((a.x - b.x) * (a.x - b.x)) + ((a.y - b.y) * (a.y - b.y));
 }
@@ -35,7 +35,7 @@ int Convex::orientation(Point a, Point b, Point c)
     return 0; // collinear
 }
 
-void Convex::findConvexHull()
+void Convex::findConvexHull_using_vector()
 {
     int n = vx_pairs.size();
 
@@ -70,6 +70,46 @@ void Convex::findConvexHull()
 
         convex_vx.push_back(vx_pairs[i]);
     }
+}
+
+
+#include <deque>
+
+void Convex::findConvexHull_using_deque()
+{
+    int n = vx_pairs.size();
+
+    if (n < 3)
+    {
+        convex_vx.clear();
+        return; // cannot form hull
+    }
+
+    // Find point with smallest y (and leftmost if tie)
+    Point p0 = *std::min_element(vx_pairs.begin(), vx_pairs.end(), [](Point a, Point b) { return std::make_pair(a.y, a.x) < std::make_pair(b.y, b.x);});
+
+    // Sort points by polar angle with p0
+    std::sort(vx_pairs.begin(), vx_pairs.end(), [&](const Point &a, const Point &b)
+              {
+                  int o = orientation(p0, a, b);
+                  if (o == 0)
+                      return calculate_distance(p0, a) < calculate_distance(p0, b);
+                  return o == 1;
+              });
+
+    std::deque<Point> dq;
+
+    for (int i = 0; i < n; ++i)
+    {
+        while (dq.size() > 1 &&
+               orientation(*(dq.rbegin() + 1), dq.back(), vx_pairs[i]) != 1)
+        {
+            dq.pop_back();
+        }
+        dq.push_back(vx_pairs[i]);
+    }
+
+    convex_vx.assign(dq.begin(), dq.end());
 }
 
 float Convex::calculate_area()
