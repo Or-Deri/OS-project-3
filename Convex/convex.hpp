@@ -4,12 +4,7 @@
 #include <cmath>
 #include <algorithm>
 #include <exception>
-
-#include <iostream>
-#include <vector>
-#include <cmath>
-#include <algorithm>
-#include <exception>
+#include <deque>
 
 struct Point
 {
@@ -20,16 +15,15 @@ struct Point
     {
         return x == t.x && y == t.y;
     }
-    
 };
 
 class Convex
 {
-
 private:
     int num_vx;
-    std::vector<Point> vx_pairs;
+    std::vector<Point> vx_pairs; 
     std::vector<Point> convex_vx;
+    
 
 public:
     Convex(int num) : num_vx(num) {}
@@ -45,4 +39,11 @@ public:
     float calculate_area();
 
     const std::vector<Point> &get_convex_vx() const;
+
+    void Convex::findConvexHull_using_vector();
+
+    void Convex::findConvexHull_using_deque();
+
+
+
 };

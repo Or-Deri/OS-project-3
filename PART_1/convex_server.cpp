@@ -3,6 +3,7 @@
 #include <sstream>
 #include "../Convex/convex.hpp"
 
+
 int main()
 {
 
@@ -17,6 +18,8 @@ int main()
         if (num_vx <= 0)
         {
             std::cout << "Wrong input for number of vertices. Must be higher than zero." << std::endl;
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             continue;
         }
         break;
