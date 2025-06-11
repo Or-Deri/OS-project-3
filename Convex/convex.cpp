@@ -5,6 +5,16 @@ void Convex::add_vx(float x, float y)
     vx_pairs.push_back({x, y});
 }
 
+void Convex::remove_vx(float x, float y)
+{
+    for (auto it = vx_pairs.begin(); it != vx_pairs.end(); ++it){
+        if (it->x == x && it->y == y) {
+            vx_pairs.erase(it);
+            break;
+        }
+    }
+}
+
 int Convex::calculate_distance(Point a, Point b)
 {
     return ((a.x - b.x) * (a.x - b.x)) + ((a.y - b.y) * (a.y - b.y));
