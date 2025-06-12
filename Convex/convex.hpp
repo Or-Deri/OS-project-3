@@ -30,7 +30,9 @@ public:
 
     void add_vx(float x, float y);
 
-    int calculate_distance(Point a, Point b);
+    void remove_vx(float x, float y);
+
+    float calculate_distance(Point a, Point b);
 
     int orientation(Point a, Point b, Point c);
 
