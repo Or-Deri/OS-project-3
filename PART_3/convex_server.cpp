@@ -35,7 +35,7 @@ int main() {
                 size_t comma_pos = line.find(',');
                 if (comma_pos == std::string::npos) {
                     std::cout << "Invalid input, use format x,y" << std::endl;
-                    --i; // re-ask for this point
+                    --i; 
                     continue;
                 }
                 float x = std::stof(line.substr(0, comma_pos));
@@ -45,7 +45,7 @@ int main() {
             std::cout << "Graph created " << std::endl;
         }
         
-        // Add a new point to the current graph
+        // add a new point action
         else if (cmd == "Newpoint") {
             std::string rest;
             ss >> rest;
@@ -69,7 +69,7 @@ int main() {
             std::cout << "Point (" << x << "," << y << ") added" << std::endl;
         }
         
-        // Remove a point from the current graph
+        // remove point option 
         else if (cmd == "Removepoint") {
             std::string rest;
             ss >> rest;
@@ -93,7 +93,7 @@ int main() {
             std::cout << "Point (" << x << "," << y << ") removed" << std::endl;
         }
         
-        // Calculate and print the convex hull area
+        // calculate the convex hull area
         else if (cmd == "CH") {
             
             if (!my_conv) {
@@ -117,7 +117,7 @@ int main() {
                 std::cout << "Error calculating area: " << ex.what() << std::endl;
             }
         }
-        // Unknown command
+
         else {
             std::cout << "Unknown command. Please try again." << std::endl;
         }
