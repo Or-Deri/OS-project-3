@@ -29,17 +29,25 @@ int main() {
 
             std::cout << "Enter " << n << " points x,y" << std::endl;
             
+            // Read n points from the client x,y
             for (int i = 0; i < n; ++i) {
                 
                 std::getline(std::cin, line);
                 size_t comma_pos = line.find(',');
+                
                 if (comma_pos == std::string::npos) {
-                    std::cout << "Invalid input, use format x,y" << std::endl;
-                    --i; 
+                    std::cout << "Invalid input use format x,y" << std::endl;
+                    
+                    --i; // re-ask for this point
                     continue;
                 }
-                float x = std::stof(line.substr(0, comma_pos));
-                float y = std::stof(line.substr(comma_pos + 1));
+
+                float x;
+                float y;
+
+                x = std::stof(line.substr(0, comma_pos));
+                y = std::stof(line.substr(comma_pos + 1));
+                
                 my_conv->add_vx(x, y);
             }
             std::cout << "Graph created " << std::endl;
@@ -47,6 +55,7 @@ int main() {
         
         // add a new point action
         else if (cmd == "Newpoint") {
+    
             std::string rest;
             ss >> rest;
             size_t comma_pos = rest.find(',');
@@ -65,23 +74,27 @@ int main() {
 
             x = std::stof(rest.substr(0, comma_pos));
             y = std::stof(rest.substr(comma_pos + 1));
+            
             my_conv->add_vx(x, y);
             std::cout << "Point (" << x << "," << y << ") added" << std::endl;
         }
         
         // remove point option 
         else if (cmd == "Removepoint") {
+        
             std::string rest;
             ss >> rest;
             size_t comma_pos = rest.find(',');
+            
             if (!my_conv) {
-                std::cout << "No graph exists. Use Newgraph first." << std::endl;
+                std::cout << "No graph exists. Use Newgraph first" << std::endl;
                 continue;
             }
             if (comma_pos == std::string::npos) {
                 std::cout << "Invalid input, use format Removepoint x,y" << std::endl;
                 continue;
             }
+            
             float x;
             float y;
 
@@ -119,7 +132,7 @@ int main() {
         }
 
         else {
-            std::cout << "Unknown command. Please try again." << std::endl;
+            std::cout << "Unknown command " << std::endl;
         }
         std::cout << "Enter next command:" << std::endl;
     }
