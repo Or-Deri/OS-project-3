@@ -1,8 +1,4 @@
 #include "Reactor.hpp"
-#include <sys/select.h>
-#include <unistd.h>
-#include <iostream>
-#include <vector>
 
 Reactor *start_reactor()
 {
@@ -18,7 +14,7 @@ int add_fd_to_reactor(Reactor *reactor, int fd, reactorFunc func)
         return -1;
     }
     std::lock_guard<std::mutex> lock(reactor->mtx);
-    
+
     reactor->file_des[fd] = func;
     return 0;
 }
@@ -101,5 +97,5 @@ void run_reactor(Reactor *reac)
             if (p.second)
                 p.second(p.first);
         }
-    }
+    }    
 }

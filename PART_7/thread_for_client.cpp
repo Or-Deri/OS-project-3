@@ -113,6 +113,7 @@ void handle_client_commands(int client_fd) {
             if (!shared_convex) {
                 response = "No graph exists. Use Newgraph first\n";
             } 
+            
             else if (comma_pos == std::string::npos) {
                 response = "Invalid input, use format Newpoint x,y\n";
             } 
