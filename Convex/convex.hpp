@@ -23,7 +23,6 @@ private:
     int num_vx;
     std::vector<Point> vx_pairs; 
     std::vector<Point> convex_vx;
-    
 
 public:
     Convex(int num) : num_vx(num) {}
@@ -36,16 +35,11 @@ public:
 
     int orientation(Point a, Point b, Point c);
 
-    void findConvexHull();
+    void findConvexHull_using_vector();
+
+    void findConvexHull_using_deque();
 
     float calculate_area();
 
     const std::vector<Point> &get_convex_vx() const;
-
-    void Convex::findConvexHull_using_vector();
-
-    void Convex::findConvexHull_using_deque();
-
-
-
 };

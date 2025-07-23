@@ -72,9 +72,6 @@ void Convex::findConvexHull_using_vector()
     }
 }
 
-
-#include <deque>
-
 void Convex::findConvexHull_using_deque()
 {
     int n = vx_pairs.size();

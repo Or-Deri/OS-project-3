@@ -45,9 +45,9 @@ int main()
     Convex my_conv_vector(num_vx);
     Convex myconv_deque(num_vx);
 
-    int counter = 0;
+    int counter = 1;
     // Read points from user line by line until reaching num_vx
-    while (counter < num_vx)
+    while (1)
     {
         std::string cords;
         std::getline(std::cin, cords);
@@ -75,6 +75,10 @@ int main()
         my_conv_vector.add_vx(x_cord, y_cord);
         myconv_deque.add_vx(x_cord, y_cord);
 
+        if (counter == num_vx) 
+        {
+            break;
+        }
         counter++;
     }
 
