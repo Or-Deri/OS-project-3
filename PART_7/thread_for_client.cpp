@@ -156,7 +156,8 @@ void handle_client_commands(int client_fd) {
 
         // Calculate and print the convex hull area
         else if (cmd == "CH") {
-
+            pthread_mutex_lock(&graph_mutex);
+            
             if (!shared_convex) {
                 response = "No graph exists, use Newgraph to create one \n";
             } 
@@ -178,6 +179,7 @@ void handle_client_commands(int client_fd) {
                     response = std::string("Error calculating area: ") + ex.what() + "\n";
                 }
             }
+            pthread_mutex_unlock(&graph_mutex);
         }
         // If command is unknown
         else {
