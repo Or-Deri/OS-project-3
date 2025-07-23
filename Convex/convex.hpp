@@ -31,7 +31,7 @@ public:
 
     void remove_vx(float x, float y);
 
-    int calculate_distance(Point a, Point b);
+    float calculate_distance(Point a, Point b);
 
     int orientation(Point a, Point b, Point c);
 
