@@ -1,0 +1,201 @@
+#include "Reactor.hpp"
+#include <sys/select.h>
+#include <unistd.h>
+#include <iostream>
+#include <vector>
+
+Pro_actor global_pro_actor;
+
+Reactor *start_reactor()
+{
+    Reactor *rec = new Reactor();
+    rec->is_active = 1;
+    return rec;
+}
+
+int add_fd_to_reactor(Reactor *reactor, int fd, reactorFunc func)
+{
+    if (!reactor || fd < 0 || !func)
+    {
+        return -1;
+    }
+    std::lock_guard<std::mutex> lock(reactor->mtx);
+
+    reactor->file_des[fd] = func;
+    return 0;
+}
+
+int remove_fd_from_reactor(Reactor *reactor, int fd)
+{
+    if (!reactor || fd < 0)
+        return -1;
+    std::lock_guard<std::mutex> lock(reactor->mtx);
+    reactor->file_des.erase(fd);
+    return 0;
+}
+
+int stop_reactor(Reactor *reactor)
+{
+    if (reactor)
+    {
+        reactor->is_active = 0;
+        return 0;
+    }
+    return -1;
+}
+
+void run_reactor(Reactor *reac)
+{
+    if (!reac)
+        return;
+
+    while (reac->is_active)
+    {
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        int max_fd = -1;
+
+        {
+            std::lock_guard<std::mutex> lock(reac->mtx);
+            if (reac->file_des.empty())
+                break;
+
+            for (const auto &p : reac->file_des)
+            {
+                FD_SET(p.first, &readfds);
+                if (p.first > max_fd)
+                    max_fd = p.first;
+            }
+        }
+
+        if (max_fd < 0)
+        {
+            usleep(10000);
+            continue;
+        }
+
+        timeval tv;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+        int ret = select(max_fd + 1, &readfds, nullptr, nullptr, &tv);
+        if (ret < 0)
+        {
+            perror("select");
+            break;
+        }
+        if (ret == 0)
+            continue; // timeout
+
+        std::vector<std::pair<int, reactorFunc>> ready;
+        {
+            std::lock_guard<std::mutex> lock(reac->mtx);
+            for (const auto &p : reac->file_des)
+            {
+                if (FD_ISSET(p.first, &readfds))
+                {
+                    ready.push_back(p);
+                }
+            }
+        }
+
+        for (const auto &p : ready)
+        {
+            if (p.second)
+                p.second(p.first);
+        }
+    }
+}
+
+void *run_threads(void *arg)
+{
+    handle_thread *thread_arguments = (handle_thread *)arg;
+    if (thread_arguments->pro_func)
+    {
+        thread_arguments->pro_func(thread_arguments->client_socket);
+    }
+    close(thread_arguments->client_socket);
+    delete thread_arguments;
+    return nullptr;
+}
+
+// new thread for the client that has been added using accept
+// thread_id + client_socket
+void *accept_thread_arguments(void *arg)
+{
+    accept_args *args = (accept_args *)arg;
+    int sockfd = args->sockfd;
+    proactorFunc func = args->func;
+    delete args;
+
+    while (1)
+    {
+        int clint_sock = accept(sockfd, nullptr, nullptr);
+        if (clint_sock == -1)
+        {
+            continue;
+        }
+
+        handle_thread *thread_data = new handle_thread{clint_sock, func};
+        pthread_t thread_id;
+        pthread_create(&thread_id, nullptr, run_threads, thread_data);
+
+        add_to_global_pro_actor(thread_id, clint_sock); // שם משתנה תקין
+    }
+    return nullptr;
+}
+
+// note - those are different threads with different sockets
+// and they have to be saved seperately.
+
+// start the proactor
+// thread is listening to the accept (main loop)
+// thread_id + sockfd
+pthread_t start_proactor(int sockfd, proactorFunc threadFunc)
+{
+    accept_args *args = new accept_args{sockfd, threadFunc};
+    pthread_t tid;
+    int ret = pthread_create(&tid, nullptr, accept_thread_arguments, args);
+    if (ret != 0) 
+    {
+        perror("failed creating a thread");
+        delete args;
+        return 0;  
+    }
+    add_to_global_pro_actor(tid, sockfd);
+
+    return tid;
+}
+
+// stop the proactor
+int stop_proactor(pthread_t thread_id)
+{
+    std::lock_guard<std::mutex> lock(global_pro_actor.mtx);
+
+    auto it = global_pro_actor.thrds.find(thread_id);
+    if (it == global_pro_actor.thrds.end())
+    {
+        perror("thread id not found");
+        return -1;
+    }
+
+    pthread_cancel(thread_id);
+    pthread_join(thread_id, nullptr);
+
+    close(it->second);
+
+    global_pro_actor.thrds.erase(it);
+
+    if (global_pro_actor.thrds.empty())
+    {
+        global_pro_actor.is_active = false;
+    }
+
+    return 1;
+}
+
+void add_to_global_pro_actor(pthread_t thread_id, int client_sk)
+{
+    std::lock_guard<std::mutex> lock(global_pro_actor.mtx);
+    global_pro_actor.thrds[thread_id] = client_sk;
+    global_pro_actor.is_active = 1;
+}

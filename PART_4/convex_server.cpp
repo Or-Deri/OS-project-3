@@ -212,6 +212,7 @@ int main() {
 
         sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
+        
         int client_sock = accept(server_fd, (struct sockaddr*) &client_addr, &client_len);
         
         if (client_sock < 0) {
