@@ -153,15 +153,16 @@ void handle_client_commands(int client_fd) {
             pthread_mutex_unlock(&graph_mutex);
         }
 
-        // Calculate and print the convex hull area
+        // calculate and print the convex hull area
         else if (cmd == "CH") {
 
             if (!shared_convex) {
                 response = "No graph exists, use Newgraph to create one \n";
             } 
-            else {
+            else 
+            {
                 
-                shared_convex->findConvexHull();
+                shared_convex->findConvexHull_using_vector();
                 auto hull = shared_convex->get_convex_vx();
                 
                 if (hull.size() < 3) {
@@ -188,7 +189,7 @@ void handle_client_commands(int client_fd) {
         // Send the response to the client
         send(client_fd, response.c_str(), response.size(), 0);
     }
-    // Close the connection for this client
+    // close the connection for this client
     close(client_fd);
 }
 
@@ -241,7 +242,6 @@ int main() {
     delete shared_convex;
     shared_convex = nullptr;
     pthread_mutex_unlock(&graph_mutex);
-
 
     close(server_fd);
     return 0;

@@ -4,9 +4,11 @@
 #include <map>
 #include <thread>
 #include <pthread.h>
+#include <sys/socket.h>
 
 typedef void (*reactorFunc)(int fd);
-typedef void (*proactorFunc)(int sockfd);
+typedef void* (*proactorFunc)(int sockfd);
+
 
 struct Reactor {
     std::map<int, reactorFunc> file_des;

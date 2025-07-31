@@ -153,7 +153,7 @@ void handle_client_commands(int client_fd)
             }
             else
             {
-                shared_convex->findConvexHull();
+                shared_convex->findConvexHull_using_vector();
                 auto hull = shared_convex->get_convex_vx();
 
                 if (hull.size() < 3)

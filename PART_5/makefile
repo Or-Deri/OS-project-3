@@ -1,10 +1,13 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -g
 
-all: reactor
+all: libreacotor.a
 
-reactor.o: reactor.cpp Reactor.hpp
+reactor.o: reactor.cpp reactor.hpp
 	$(CXX) $(CXXFLAGS) -c reactor.cpp -o reactor.o
 
+libreacotor.a: reactor.o
+	ar rcs libreacotor.a reactor.o
+
 clean:
-	rm -f *.o *.a main
+	rm -f *.o libreacotor.a
