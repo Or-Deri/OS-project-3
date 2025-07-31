@@ -11,6 +11,7 @@ struct Point
     float x;
     float y;
 
+    // operator == to 
     bool operator==(const Point &t) const
     {
         return x == t.x && y == t.y;

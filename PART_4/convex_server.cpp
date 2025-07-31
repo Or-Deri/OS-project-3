@@ -8,21 +8,19 @@
 #include "../Convex/convex.hpp"
 
 // Server settings
-#define PORT = 9034
+#define PORT 9034
 #define BUFFER_SIZE 1024
 
-// The convex object for all clients
+// The convex object for all clients 
+// required by the question
 Convex* shared_convex = nullptr;
 
 void handle_client(int client_sock) {
     char buffer[BUFFER_SIZE];
 
-    // Send instructions to the client
-    std::string welcome = "Convex Server ready. Use commands: Newgraph, Newpoint, Removepoint, CH\n";
-    send(client_sock, welcome.c_str(), welcome.size(), 0);
-
     // Main loop for client
-    while (true) {
+    while (1) 
+    {
 
         memset(buffer, 0, BUFFER_SIZE);
         int bytes = recv(client_sock, buffer, BUFFER_SIZE - 1, 0);
@@ -40,7 +38,7 @@ void handle_client(int client_sock) {
 
         // Newgraph command: create a new set of points
         if (cmd == "Newgraph") {
-            
+    
             int n;
             ss >> n;
             
@@ -60,7 +58,8 @@ void handle_client(int client_sock) {
             send(client_sock, response.c_str(), response.size(), 0);
 
             // Read n points from the client x,y
-            for (int i = 0; i < n; ++i) {
+            for (int i = 0; i < n; ++i) 
+            {
 
                 memset(buffer, 0, BUFFER_SIZE);
                 int point_bytes = recv(client_sock, buffer, BUFFER_SIZE - 1, 0);
@@ -90,15 +89,16 @@ void handle_client(int client_sock) {
                 
                 shared_convex->add_vx(x, y);
             }
+
             response = "Graph created\n";
         }
 
         // Add a new point to the current graph
         else if (cmd == "Newpoint") {
         
-            std::string rest;
-            ss >> rest;
-            size_t comma_pos = rest.find(',');
+            std::string cord;
+            ss >> cord;
+            size_t comma_pos = cord.find(',');
         
             if (!shared_convex) {
                 response = "No graph exists. Use Newgraph first\n";
@@ -111,20 +111,21 @@ void handle_client(int client_sock) {
                 float x;
                 float y;
 
-                x = std::stof(rest.substr(0, comma_pos));
-                y = std::stof(rest.substr(comma_pos + 1));
+                x = std::stof(cord.substr(0, comma_pos));
+                y = std::stof(cord.substr(comma_pos + 1));
                 
                 shared_convex->add_vx(x, y);
                 response = "Point (" + std::to_string(x) + "," + std::to_string(y) + ") added\n";
             }
         }
 
-        // Remove a point from the current graph
+        // remove a point from the current graph
         else if (cmd == "Removepoint") {
         
-            std::string rest;
-            ss >> rest;
-            size_t comma_pos = rest.find(',');
+            std::string cord;
+            ss >> cord;
+
+            size_t comma_pos = cord.find(',');
         
             if (!shared_convex) {
                 response = "No graph exists. Use Newgraph first\n";
@@ -133,14 +134,19 @@ void handle_client(int client_sock) {
                 response = "Invalid input, use format Removepoint x,y\n";
             } 
             else {
-                float x = std::stof(rest.substr(0, comma_pos));
-                float y = std::stof(rest.substr(comma_pos + 1));
+
+                float x = std::stof(cord.substr(0, comma_pos));
+                float y = std::stof(cord.substr(comma_pos + 1));
+
+
                 shared_convex->remove_vx(x, y);
+
+                std::cout << "Point (" << x << "," << y << ") removed" << std::endl;
                 response = "Point (" + std::to_string(x) + "," + std::to_string(y) + ") removed\n";
             }
         }
 
-        // Calculate and print the convex hull area
+        // calculate and print the convex hull area
         else if (cmd == "CH") {
             
             if (!shared_convex) {
@@ -159,56 +165,61 @@ void handle_client(int client_sock) {
                 try {
                     float area = shared_convex->calculate_area();
                     response = "Convex hull area: " + std::to_string(area) + "\n";
+
                 } catch (const std::exception& ex) {
                     response = std::string("Error calculating area: ") + ex.what() + "\n";
                 }
             }
         }
-        // If command is unknown
+        // if command is unknown
         else {
             response = "Unknown command \n";
         }
 
-        // Send the response to the client
+        // send the response to the client
         send(client_sock, response.c_str(), response.size(), 0);
     }
-    // Close the connection for this client
+
+
+
+    // close the connection for this client
     close(client_sock);
 }
 
 int main() {
 
-    // Create the server socket
+    // create the server socket
+    // tcp socket - sock stream
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1) {
 
         perror("socket failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    // Server address 
+    // create server address 
     sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);       //PORT = 9034
+    address.sin_port = htons(PORT);
  
-    // Bind the socket to port
+    // bind the socket to port
     if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
 
         perror("bind failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     if (listen(server_fd, 5) < 0) {
 
         perror("listen failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    std::cout << "Convex Hull Server started on port " << PORT << std::endl;
+    std::cout << "convex Hull Server started on port " << PORT << std::endl;
 
     // accept one client 
-    while (true) {
+    while (1) {
 
         sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
@@ -223,13 +234,15 @@ int main() {
         
         std::cout << "Client connected." << std::endl;
     
-        // Process all commands for this client
+        // process all commands for this client
         handle_client(client_sock);
         
         std::cout << "Client disconnected." << std::endl;
     }
 
-    // Clean up shared resources
+
+
+    // clean up shared resources
     delete shared_convex;
     close(server_fd);
 

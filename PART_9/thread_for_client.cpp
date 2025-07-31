@@ -10,6 +10,7 @@
 #include "../Convex/convex.hpp"
 #include "../PART_8/reactor.hpp"
 
+// how many pending connections the queue holds
 #define BACKLOG 10
 
 // Server settings
@@ -25,12 +26,8 @@ pthread_mutex_t graph_mutex = PTHREAD_MUTEX_INITIALIZER;
 void handle_client_commands(int client_fd) {
     char buffer[BUFFER_SIZE];
 
-    // Send instructions to the client
-    std::string welcome = "Convex Server ready. Use commands: Newgraph, Newpoint, Removepoint, CH\n";
-    send(client_fd, welcome.c_str(), welcome.size(), 0);
-
     // Main loop for client
-    while (true) {
+    while (1) {
 
         memset(buffer, 0, BUFFER_SIZE);
         int bytes = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
@@ -197,7 +194,6 @@ void handle_client_commands(int client_fd) {
 
 void* client_handler(int client_fd) {
     handle_client_commands(client_fd);
-    close(client_fd);
     return nullptr;
 }
 
@@ -209,7 +205,7 @@ int main() {
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         perror("socket");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     // bind
@@ -221,7 +217,16 @@ int main() {
     if (bind(server_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
         perror("bind");
         close(server_fd);
-        exit(EXIT_FAILURE);
+        exit(1);
+    }
+
+    int opt = listen(server_fd, BACKLOG);
+
+    if (opt < 0)
+    {
+        perror("listen");
+        close(server_fd);
+        exit(1);
     }
 
     printf("Server listening on port %d\n", PORT);
@@ -231,6 +236,13 @@ int main() {
     pthread_join(proactor_thread, nullptr);
 
     pthread_mutex_destroy(&graph_mutex);
+
+    pthread_mutex_lock(&graph_mutex);
+    delete shared_convex;
+    shared_convex = nullptr;
+    pthread_mutex_unlock(&graph_mutex);
+
+
     close(server_fd);
     return 0;
 }

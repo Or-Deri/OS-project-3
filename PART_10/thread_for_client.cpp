@@ -10,12 +10,12 @@
 #include "../Convex/convex.hpp"
 #include "../PART_8/reactor.hpp"
 
+// how many pending connections the queue holds
 #define BACKLOG 10
 
 // Server settings
 constexpr int PORT = 9034;
 constexpr int BUFFER_SIZE = 1024;
-
 
 bool area_above_100 = false;
 
@@ -23,20 +23,16 @@ bool area_above_100 = false;
 Convex *shared_convex = nullptr;
 
 pthread_mutex_t graph_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_mutex_t ch_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t ch_cond = PTHREAD_COND_INITIALIZER;
 
 void handle_client_commands(int client_fd)
 {
     char buffer[BUFFER_SIZE];
 
-    // Send instructions to the client
-    std::string welcome = "Convex Server ready. Use commands: Newgraph, Newpoint, Removepoint, CH\n";
-    send(client_fd, welcome.c_str(), welcome.size(), 0);
-
-    // Main loop for client
-    while (true)
+    while (1)
     {
-
         memset(buffer, 0, BUFFER_SIZE);
         int bytes = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
 
@@ -52,23 +48,18 @@ void handle_client_commands(int client_fd)
 
         std::string response;
 
-        // Newgraph command: create a new set of points
         if (cmd == "Newgraph")
         {
-
             int n;
             ss >> n;
 
             if (n <= 0)
             {
-
                 response = "Number of points must be positive \n";
                 send(client_fd, response.c_str(), response.size(), 0);
-
                 continue;
             }
 
-            // Remove previous graph if exists
             pthread_mutex_lock(&graph_mutex);
             delete shared_convex;
             shared_convex = new Convex(n);
@@ -76,14 +67,10 @@ void handle_client_commands(int client_fd)
             response = "Enter " + std::to_string(n) + " points x,y \n";
             send(client_fd, response.c_str(), response.size(), 0);
 
-            // Read n points from the client x,y
             for (int i = 0; i < n; ++i)
             {
-
                 memset(buffer, 0, BUFFER_SIZE);
                 int point_bytes = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
-
-                // Client disconnected
                 if (point_bytes <= 0)
                 {
                     break;
@@ -94,30 +81,22 @@ void handle_client_commands(int client_fd)
 
                 if (comma_pos == std::string::npos)
                 {
-
                     std::string msg = "Invalid input use format x,y\n";
                     send(client_fd, msg.c_str(), msg.size(), 0);
-
                     --i;
                     continue;
                 }
 
-                float x;
-                float y;
-
-                x = std::stof(ptline.substr(0, comma_pos));
-                y = std::stof(ptline.substr(comma_pos + 1));
+                float x = std::stof(ptline.substr(0, comma_pos));
+                float y = std::stof(ptline.substr(comma_pos + 1));
 
                 shared_convex->add_vx(x, y);
             }
             pthread_mutex_unlock(&graph_mutex);
             response = "Graph created\n";
         }
-
-        // Add a new point to the current graph
         else if (cmd == "Newpoint")
         {
-
             std::string rest;
             ss >> rest;
             size_t comma_pos = rest.find(',');
@@ -127,36 +106,27 @@ void handle_client_commands(int client_fd)
             {
                 response = "No graph exists. Use Newgraph first\n";
             }
-
             else if (comma_pos == std::string::npos)
             {
                 response = "Invalid input, use format Newpoint x,y\n";
             }
             else
             {
-
-                float x;
-                float y;
-
-                x = std::stof(rest.substr(0, comma_pos));
-                y = std::stof(rest.substr(comma_pos + 1));
+                float x = std::stof(rest.substr(0, comma_pos));
+                float y = std::stof(rest.substr(comma_pos + 1));
 
                 shared_convex->add_vx(x, y);
                 response = "Point (" + std::to_string(x) + "," + std::to_string(y) + ") added\n";
             }
             pthread_mutex_unlock(&graph_mutex);
         }
-
-        // Remove a point from the current graph
         else if (cmd == "Removepoint")
         {
-
             std::string rest;
             ss >> rest;
             size_t comma_pos = rest.find(',');
 
             pthread_mutex_lock(&graph_mutex);
-
             if (!shared_convex)
             {
                 response = "No graph exists. Use Newgraph first\n";
@@ -169,23 +139,20 @@ void handle_client_commands(int client_fd)
             {
                 float x = std::stof(rest.substr(0, comma_pos));
                 float y = std::stof(rest.substr(comma_pos + 1));
+
                 shared_convex->remove_vx(x, y);
                 response = "Point (" + std::to_string(x) + "," + std::to_string(y) + ") removed\n";
             }
             pthread_mutex_unlock(&graph_mutex);
         }
-
-        // Calculate and print the convex hull area
         else if (cmd == "CH")
         {
-
             if (!shared_convex)
             {
                 response = "No graph exists, use Newgraph to create one \n";
             }
             else
             {
-
                 shared_convex->findConvexHull();
                 auto hull = shared_convex->get_convex_vx();
 
@@ -201,7 +168,6 @@ void handle_client_commands(int client_fd)
                     float area = shared_convex->calculate_area();
 
                     pthread_mutex_lock(&ch_mutex);
-
                     if (area >= 100 && !area_above_100)
                     {
                         area_above_100 = true;
@@ -212,56 +178,56 @@ void handle_client_commands(int client_fd)
                         area_above_100 = false;
                         pthread_cond_signal(&ch_cond);
                     }
-
                     pthread_mutex_unlock(&ch_mutex);
 
                     response = "Convex hull area: " + std::to_string(area) + "\n";
                 }
                 catch (const std::exception &ex)
                 {
-
                     response = std::string("Error calculating area: ") + ex.what() + "\n";
                 }
             }
         }
-        // If command is unknown
         else
         {
             response = "Unknown command \n";
         }
 
-        // Send the response to the client
         send(client_fd, response.c_str(), response.size(), 0);
     }
-    // Close the connection for this client
+
     close(client_fd);
 }
 
 void *client_handler(int client_fd)
 {
     handle_client_commands(client_fd);
-    close(client_fd);
     return nullptr;
 }
 
-
-void waiting_ch_thread(void* args)
+void* waiting_ch_thread(void *args)
 {
     pthread_mutex_lock(&ch_mutex);
+    bool saved_state = !area_above_100;
 
-    while (1) {
+    while (1)
+    {
+        while (area_above_100 == saved_state)
+        {
+            pthread_cond_wait(&ch_cond, &ch_mutex);
+        }
 
-        pthread_cond_wait(&ch_cond, &ch_mutex);
+        saved_state = area_above_100;
 
-
-        if (area_above_100) 
+        if (area_above_100)
         {
             std::cout << "At Least 100 units belongs to CH" << std::endl;
-        } else {
+        }
+        else
+        {
             std::cout << "At Least 100 units no longer belongs to CH" << std::endl;
         }
     }
-
     pthread_mutex_unlock(&ch_mutex);
     return nullptr;
 }
@@ -271,15 +237,13 @@ int main()
     int server_fd;
     struct sockaddr_in serv_addr;
 
-    // socket
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0)
     {
         perror("socket");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    // bind
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -289,21 +253,42 @@ int main()
     {
         perror("bind");
         close(server_fd);
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
+    pthread_t ch_waiting_thread;
+    pthread_create(&ch_waiting_thread, nullptr,waiting_ch_thread, nullptr);
 
-   pthread_t ch_waiting_thread;
-    pthread_create(&ch_waiting_thread, nullptr, (void*(*)(void*))waiting_ch_thread, nullptr);
+    int opt = listen(server_fd, BACKLOG);
+
+    if (opt < 0)
+    {
+        perror("listen");
+        close(server_fd);
+        exit(1);
+    }
 
     printf("Server listening on port %d\n", PORT);
 
     pthread_t proactor_thread = start_proactor(server_fd, client_handler);
 
     pthread_join(proactor_thread, nullptr);
-    pthread_join(ch_waiting_thread, nullptr); 
+    pthread_join(ch_waiting_thread, nullptr);
+
+
+    pthread_mutex_lock(&graph_mutex);
+    delete shared_convex;
+
+    shared_convex =nullptr;
+
+    pthread_mutex_unlock(&graph_mutex);
 
     pthread_mutex_destroy(&graph_mutex);
+    pthread_mutex_destroy(&ch_mutex);
+    pthread_cond_destroy(&ch_cond);
+
     close(server_fd);
+
+
     return 0;
 }

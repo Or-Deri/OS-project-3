@@ -9,6 +9,7 @@
 #include <sstream>
 #include "../Convex/convex.hpp"
 
+// how many pending connections the queue holds
 #define BACKLOG 10
 
 // Server settings
@@ -29,7 +30,7 @@ void handle_client_commands(int client_fd) {
     send(client_fd, welcome.c_str(), welcome.size(), 0);
 
     // Main loop for client
-    while (true) {
+    while (1) {
 
         memset(buffer, 0, BUFFER_SIZE);
         int bytes = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
@@ -210,7 +211,7 @@ int main() {
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         perror("socket");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     // bind
@@ -222,14 +223,14 @@ int main() {
     if (bind(server_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
         perror("bind");
         close(server_fd);
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     // clients
     if (listen(server_fd, BACKLOG) < 0) {
         perror("listen");
         close(server_fd);
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     printf("Server listening on port %d\n", PORT);
@@ -264,6 +265,12 @@ int main() {
 
     
     pthread_mutex_destroy(&graph_mutex);
+
+    pthread_mutex_lock(&graph_mutex);
+    delete shared_convex;
+    shared_convex = nullptr;
+    pthread_mutex_unlock(&graph_mutex);
+
     close(server_fd);
     return 0;
 }

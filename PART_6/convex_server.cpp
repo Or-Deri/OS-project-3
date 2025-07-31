@@ -20,8 +20,6 @@ std::string input_buffer[FD_SETSIZE];
 Convex* my_conv[FD_SETSIZE] = {nullptr};
 
 
-
-
 // the client handler -
 void handle_client(int client_fd)
 {
