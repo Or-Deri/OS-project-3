@@ -10,32 +10,33 @@
 #include "../Convex/convex.hpp"
 #include "../PART_8/reactor.hpp"
 
-// how many pending connections the queue holds
-#define BACKLOG 10
+// beej's port
+// and a buffer size 1024
+const int PORT = 9034;
+const int BUFFER_SIZE = 1024;
 
-// Server settings
-constexpr int PORT = 9034;
-constexpr int BUFFER_SIZE = 1024;
-
-// The convex object for all clients
+// the convex object for all clients
 Convex* shared_convex = nullptr;
 
+// mutex to synchronize the access to the clients shared convex
 pthread_mutex_t graph_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-  
 void handle_client_commands(int client_fd) {
     char buffer[BUFFER_SIZE];
 
-    // Main loop for client
+    // loop for the client commands (multiple clients and not just one)
     while (1) {
 
         memset(buffer, 0, BUFFER_SIZE);
         int bytes = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
         
         if (bytes <= 0) {
+            // if bytes ==0 then client has disconnected
+            // else, there was an error connecting
             break;
         }
         
+        // we need to parse the commands given by the clients
         std::string line(buffer);
         std::stringstream ss(line);
         std::string cmd;
@@ -43,7 +44,7 @@ void handle_client_commands(int client_fd) {
 
         std::string response;
 
-        // Newgraph command: create a new set of points
+        // newgraph - create a newgraph with a number of vertices specified
         if (cmd == "Newgraph") {
             
             int n;
@@ -57,7 +58,7 @@ void handle_client_commands(int client_fd) {
                 continue;
             }
 
-            // Remove previous graph if exists
+            // remove previous graph if exists
             pthread_mutex_lock(&graph_mutex);
             delete shared_convex;
             shared_convex = new Convex(n);
@@ -72,14 +73,19 @@ void handle_client_commands(int client_fd) {
                 int point_bytes = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
                 
                 // Client disconnected
-                if (point_bytes <= 0){
+                if (point_bytes <= 0)
+
+                {
+                    // if bytes ==0 then client has disconnected
+                    // else, there was an error connecting
                     break;
                 }
 
+
                 std::string ptline(buffer);
-                size_t comma_pos = ptline.find(',');
+                size_t find_com = ptline.find(',');
                 
-                if (comma_pos == std::string::npos) {
+                if (find_com == std::string::npos) {
                     
                     std::string msg = "Invalid input use format x,y\n";
                     send(client_fd, msg.c_str(), msg.size(), 0);
@@ -88,11 +94,13 @@ void handle_client_commands(int client_fd) {
                     continue;
                 }
                 
+
+
                 float x;
                 float y;
 
-                x = std::stof(ptline.substr(0, comma_pos));
-                y = std::stof(ptline.substr(comma_pos + 1));
+                x = std::stof(ptline.substr(0, find_com));
+                y = std::stof(ptline.substr(find_com + 1));
                 
                 shared_convex->add_vx(x, y);
             }
@@ -102,17 +110,21 @@ void handle_client_commands(int client_fd) {
 
         // Add a new point to the current graph
         else if (cmd == "Newpoint") {
+            
+
+            std::string p;
+            ss >> p;
+            size_t find_com = p.find(',');
         
-            std::string rest;
-            ss >> rest;
-            size_t comma_pos = rest.find(',');
-        
+            // lock before adding a new point
             pthread_mutex_lock(&graph_mutex);
+
+            // check if graph exists
             if (!shared_convex) {
                 response = "No graph exists. Use Newgraph first\n";
             } 
             
-            else if (comma_pos == std::string::npos) {
+            else if (find_com == std::string::npos) {
                 response = "Invalid input, use format Newpoint x,y\n";
             } 
             else {
@@ -120,8 +132,8 @@ void handle_client_commands(int client_fd) {
                 float x;
                 float y;
 
-                x = std::stof(rest.substr(0, comma_pos));
-                y = std::stof(rest.substr(comma_pos + 1));
+                x = std::stof(p.substr(0, find_com));
+                y = std::stof(p.substr(find_com + 1));
                 
                 shared_convex->add_vx(x, y);
                 response = "Point (" + std::to_string(x) + "," + std::to_string(y) + ") added\n";
@@ -132,30 +144,39 @@ void handle_client_commands(int client_fd) {
         // Remove a point from the current graph
         else if (cmd == "Removepoint") {
 
-            std::string rest;
-            ss >> rest;
-            size_t comma_pos = rest.find(',');
+            std::string p;
+            ss >> p;
+            size_t find_com = p.find(',');
 
+            // lock before removing point to avoid conflicts
             pthread_mutex_lock(&graph_mutex);
 
+            // check if graph exists
             if (!shared_convex) {
                 response = "No graph exists. Use Newgraph first\n";
             } 
-            else if (comma_pos == std::string::npos) {
+            else if (find_com == std::string::npos) {
                 response = "Invalid input, use format Removepoint x,y\n";
             } 
             else {
-                float x = std::stof(rest.substr(0, comma_pos));
-                float y = std::stof(rest.substr(comma_pos + 1));
+                // extract the point 
+                float x = std::stof(p.substr(0, find_com));
+
+                float y = std::stof(p.substr(find_com + 1));
+
                 shared_convex->remove_vx(x, y);
+
                 response = "Point (" + std::to_string(x) + "," + std::to_string(y) + ") removed\n";
             }
+
+            /// unlock mutex
             pthread_mutex_unlock(&graph_mutex);
         }
 
         // calculate and print the convex hull area
         else if (cmd == "CH") {
 
+            pthread_mutex_lock(&graph_mutex);
             if (!shared_convex) {
                 response = "No graph exists, use Newgraph to create one \n";
             } 
@@ -167,21 +188,19 @@ void handle_client_commands(int client_fd) {
                 
                 if (hull.size() < 3) {
                     response = "Convex hull cannot be formed with less than 3 points\n";
-                    send(client_fd, response.c_str(), response.size(), 0);
-                    continue;
                 } 
 
                 try {
                     float area = shared_convex->calculate_area();
-
 
                     response = "Convex hull area: " + std::to_string(area) + "\n";
                 } catch (const std::exception& ex) {
                     response = std::string("Error calculating area: ") + ex.what() + "\n";
                 }
             }
+            pthread_mutex_unlock(&graph_mutex);
         }
-        // If command is unknown
+        // if command is unknown
         else {
             response = "Unknown command \n";
         }
@@ -193,6 +212,10 @@ void handle_client_commands(int client_fd) {
     close(client_fd);
 }
 
+
+/// @brief  handle the client commands using 
+/// @param client_fd client file descriptor
+/// @return nullptr
 void* client_handler(int client_fd) {
     handle_client_commands(client_fd);
     return nullptr;
@@ -202,27 +225,39 @@ int main() {
     int server_fd;
     struct sockaddr_in serv_addr;
 
-    // socket
+    // create the server socket
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         perror("socket");
         exit(1);
     }
 
-    // bind
+     // reuse the socket immediately after shut down
+    // mainly for testing
+    int opt_val = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
+
+    // set the server address
     memset(&serv_addr, 0, sizeof(serv_addr));
+    // ipv4
     serv_addr.sin_family = AF_INET;
+
+    /// accept client connections locally
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    // set the port (beej port)
     serv_addr.sin_port = htons(PORT);
 
+     // bind socket the ip and port
     if (bind(server_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
         perror("bind");
         close(server_fd);
         exit(1);
     }
 
-    int opt = listen(server_fd, BACKLOG);
 
+    // start listening to connections
+    int opt = listen(server_fd, 10);
     if (opt < 0)
     {
         perror("listen");
@@ -230,17 +265,26 @@ int main() {
         exit(1);
     }
 
-    printf("Server listening on port %d\n", PORT);
+    printf("server listening on port %d\n", PORT);
 
+    /// thread that handles the client connections
     pthread_t proactor_thread = start_proactor(server_fd, client_handler);
 
+    // wait for pro_actor to finish
     pthread_join(proactor_thread, nullptr);
 
+    ///destroy all the mutex and pthread conditions vars
+    // before quitting
     pthread_mutex_destroy(&graph_mutex);
 
+    //delelte the shared convex amongst all clients
+    // we have to lock the process to avoid conflics
     pthread_mutex_lock(&graph_mutex);
+
     delete shared_convex;
     shared_convex = nullptr;
+
+    // unlock mutex
     pthread_mutex_unlock(&graph_mutex);
 
     close(server_fd);

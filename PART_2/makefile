@@ -8,7 +8,7 @@ TARGET_PROFILE = convex_server_profile
 all: $(TARGET)
 
 profile: $(TARGET_PROFILE)
-	./$(TARGET_PROFILE)
+	./$(TARGET_PROFILE) < test.txt
 	mv gmon.out gmon_convex.out
 	gprof $(TARGET_PROFILE) gmon_convex.out > profile_convex_server.txt
 
@@ -21,4 +21,4 @@ $(TARGET_PROFILE): convex_server.cpp ../Convex/convex.cpp
 clean:
 	rm -f $(TARGET) $(TARGET_PROFILE) gmon_convex.out profile_convex_server.txt *.gcda *.gcno
 
-.PHONY: all clean profile
+.PHONY: all clean 

@@ -4,18 +4,6 @@
 #include <limits>
 #include "../Convex/convex.hpp"
 
-/*
-
-for this part we chose to implement the convex area algorithm using the following data structures -
-
-1. vector - 
-
-
-1. deque - 
-
-
-*/
-
 
 // retun the algo using vector
 void run_convexHull_vector(Convex &cvx)
@@ -33,24 +21,17 @@ int main()
 {
     int num_vx;
 
-    // ask the user for the number of vertices for the convex
-    while (1)
+    // num of vertices input
+    std::cout << "Enter number of vertices for the convex:" << std::endl;
+    std::cin >> num_vx;
+    if (num_vx <= 0)
     {
-        std::cout << "Enter number of vertices for the convex:" << std::endl;
-        std::cin >> num_vx;
-
-        // check that the input is valid
-        if (num_vx <= 0)
-        {
-            std::cout << "Wrong input for number of vertices. Must be higher than zero." << std::endl;
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            continue;
-        }
-        break;
+        std::cerr << "wrong input for convex num of vertices." << std::endl;
+        return 1;
     }
+    
 
-    // Clear leftover newline character after reading num_vx
+    // בlear leftover newline character after reading num_vx
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     // 2 convex instances for profiling
@@ -58,7 +39,6 @@ int main()
     Convex myconv_deque(num_vx);
 
     int counter = 1;
-    
 
     while (1)
     {
@@ -89,17 +69,29 @@ int main()
         my_conv_vector.add_vx(x, y);
         myconv_deque.add_vx(x, y);
 
-        if (counter == num_vx) 
+        if (counter == num_vx)
         {
             break;
         }
         counter++;
     }
 
-    // run convex hull ch calculations (using algo)
-    run_convexHull_vector(my_conv_vector);
-    run_convexHull_deque(myconv_deque);
+    std::cout << "running profiling..." << std::endl;
 
+    // loop for profiling test
+    int x = 500000;
+
+    // we run the convex about a 1000 times to see potential differences between
+    // the two algos using vector and deque
+    while (x > 0)
+    {
+        // run convex hull ch calculations (using algo)
+        run_convexHull_vector(my_conv_vector);
+        run_convexHull_deque(myconv_deque);
+        --x;
+    }
+
+    // 
     auto hull_vector = my_conv_vector.get_convex_vx();
     auto hull_deque = myconv_deque.get_convex_vx();
 
@@ -111,7 +103,6 @@ int main()
         {
             std::cout << "convex cannot be formed with less than 3 points." << std::endl;
             return 1;
-
         }
 
         // calculate and print areas of the convex hulls

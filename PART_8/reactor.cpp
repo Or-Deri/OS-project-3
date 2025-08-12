@@ -26,11 +26,11 @@ Reactor *start_reactor()
 /// @return 0 for success, otherwise -1.
 int add_fd_to_reactor(Reactor *reactor, int fd, reactorFunc func)
 {
-    if (!reactor || fd < 0 || !func) 
+    if (!reactor || fd < 0 || !func)
     {
         return -1;
     }
-    
+
     // lock using mutex before modifiying the reactor
     std::lock_guard<std::mutex> lock(reactor->mtx);
 
@@ -39,14 +39,13 @@ int add_fd_to_reactor(Reactor *reactor, int fd, reactorFunc func)
     return 0;
 }
 
-
 /// @brief remove file descriptor from reactor
 /// @param reactor object
 /// @param fd file descriptor to remove
 /// @return 0 for success, otherwise -1.
 int remove_fd_from_reactor(Reactor *reactor, int fd)
 {
-    if (!reactor || fd < 0) 
+    if (!reactor || fd < 0)
     {
         return -1;
     }
@@ -67,6 +66,10 @@ int stop_reactor(Reactor *reactor)
     if (reactor)
     {
         // we make sure its inactive
+        // first lock
+        std::lock_guard<std::mutex> lock(reactor->mtx);
+        // we make sure its inactive
+
         reactor->is_active = 0;
         return 1;
     }
@@ -89,14 +92,15 @@ void run_reactor(Reactor *reac)
         int max_fd = -1;
 
         {
-            // lock map before checking 
+            // lock map before checking
             std::lock_guard<std::mutex> lock(reac->mtx);
-            if (reac->file_des.empty()) 
+            if (reac->file_des.empty())
             {
-                break;
+                usleep(10000);
+                continue;
             }
 
-            // set all the file descriptors in the 
+            // set all the file descriptors in the
             for (const auto &p : reac->file_des)
             {
                 FD_SET(p.first, &readfds);
@@ -119,7 +123,7 @@ void run_reactor(Reactor *reac)
         tv.tv_sec = 1;
         tv.tv_usec = 0;
 
-        // 
+        //
         int ret = select(max_fd + 1, &readfds, nullptr, nullptr, &tv);
         if (ret < 0)
         {
@@ -129,9 +133,8 @@ void run_reactor(Reactor *reac)
 
         // reached timeout
         if (ret == 0)
-            continue; 
+            continue;
 
-        
         // vector that consists of all the fds the are ready
         std::vector<std::pair<int, reactorFunc>> ready_fds;
         {
@@ -142,7 +145,7 @@ void run_reactor(Reactor *reac)
                 // check if the fd is ready
                 if (FD_ISSET(p.first, &readfds))
                 {
-                    // store it in the vector (ready_fds) 
+                    // store it in the vector (ready_fds)
                     ready_fds.push_back(p);
                 }
             }
@@ -153,12 +156,17 @@ void run_reactor(Reactor *reac)
         for (const auto &p : ready_fds)
         {
             if (p.second)
-            // the function callbacks are stored within 
-            // the map, we just call them with the df
+                // the function callbacks are stored within
+                // the map, we just call them with the df
                 p.second(p.first);
         }
-    }    
+    }
 }
+
+
+/// @brief run a thrd which will handle a client connection
+/// @param arg a pointer to handle_thread function with a socket and a callback
+/// @return nullptr
 
 void *run_threads(void *arg)
 {
@@ -174,6 +182,8 @@ void *run_threads(void *arg)
 
 // new thread for the client that has been added using accept
 // thread_id + client_socket
+
+// create new threads for the new incoming connections
 void *accept_thread_arguments(void *arg)
 {
     accept_args *args = (accept_args *)arg;
@@ -192,10 +202,13 @@ void *accept_thread_arguments(void *arg)
             continue;
         }
 
+        // create handler thread for this client
         handle_thread *thread_data = new handle_thread{clint_sock, func};
         pthread_t thread_id;
         pthread_create(&thread_id, nullptr, run_threads, thread_data);
 
+
+        // track thread/socket in global proactor
         add_to_global_pro_actor(thread_id, clint_sock);
     }
     return nullptr;
@@ -207,23 +220,32 @@ void *accept_thread_arguments(void *arg)
 // start the proactor
 // thread is listening to the accept (main loop)
 // thread_id + sockfd
+
+/// @brief start the proactor by creating accept loop thread
+/// @param sockfd listening socket
+/// @param threadFunc callback for handling each client
+/// @return thread id of accept loop
 pthread_t start_proactor(int sockfd, proactorFunc threadFunc)
 {
     accept_args *args = new accept_args{sockfd, threadFunc};
+
     pthread_t tid;
+
     int ret = pthread_create(&tid, nullptr, accept_thread_arguments, args);
-    if (ret != 0) 
+    if (ret != 0)
     {
         perror("failed creating a thread");
         delete args;
-        return 0;  
+        return 0;
     }
     add_to_global_pro_actor(tid, sockfd);
 
     return tid;
 }
 
-// stop the proactor
+/// @brief stop proactor 
+/// @param thread_id id to stop
+/// @return succees or fail
 int stop_proactor(pthread_t thread_id)
 {
     std::lock_guard<std::mutex> lock(global_pro_actor.mtx);
@@ -250,9 +272,15 @@ int stop_proactor(pthread_t thread_id)
     return 1;
 }
 
+
+/// @brief  add thread|socket pair to the global proactor
+/// @param thread_id the id of the thread
+/// @param client_sk client sock
 void add_to_global_pro_actor(pthread_t thread_id, int client_sk)
 {
     std::lock_guard<std::mutex> lock(global_pro_actor.mtx);
+    // thread id maps to client sock
     global_pro_actor.thrds[thread_id] = client_sk;
+    // set proactor to active
     global_pro_actor.is_active = 1;
 }

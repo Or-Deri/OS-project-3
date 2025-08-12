@@ -37,11 +37,11 @@ float Convex::calculate_distance(Point a, Point b)
     return ((a.x - b.x) * (a.x - b.x)) + ((a.y - b.y) * (a.y - b.y));
 }
 
-/// @brief
-/// @param a
-/// @param b
-/// @param c
-/// @return
+/// @brief calc the orientation of the triplet points (a - b - c)
+/// @param a first point
+/// @param b second point
+/// @param c third point
+/// @return 1 if  oreintation is counter clockwise, -1 if clockwise, 0 if collinear
 int Convex::orientation(Point a, Point b, Point c)
 {
     double ans = a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y);
@@ -57,7 +57,7 @@ int Convex::orientation(Point a, Point b, Point c)
     return 0; // collinear
 }
 
-/// @brief
+/// @brief find convex hull using vector
 void Convex::findConvexHull_using_vector()
 {
     int n = vx_pairs.size();
@@ -68,20 +68,27 @@ void Convex::findConvexHull_using_vector()
         return; // cannot form hull
     }
 
-    // Find point with smallest y (and leftmost if tie)
-    Point p0 = *std::min_element(vx_pairs.begin(), vx_pairs.end(), [](Point a, Point b)
-                                 { return std::make_pair(a.y, a.x) < std::make_pair(b.y, b.x); });
+    // find point with smallest y (and leftmost if tie)
+    Point p0 = *std::min_element(vx_pairs.begin(), vx_pairs.end(), [](Point a, Point b) { // using iterator and lambda func to find the smallest y cord point
+        return std::make_pair(a.y, a.x) < std::make_pair(b.y, b.x);
+    });
 
-    // Sort points by polar angle with p0
-    std::sort(vx_pairs.begin(), vx_pairs.end(), [&](const Point &a, const Point &b)
+    // sort points by polar angle with p0
+    std::sort(
+                vx_pairs.begin(), vx_pairs.end(), [&](const Point &a, const Point &b)
               {
-                  int o = orientation(p0, a, b);
+                int o = orientation(p0, a, b);
                   if (o == 0)
-                      return calculate_distance(p0, a) < calculate_distance(p0, b);
-                  return o == 1; });
+                  {
+                    return calculate_distance(p0, a) < calculate_distance(p0, b);
+                  }
+                  return o == 1;
+                }  
+            );
 
     convex_vx.clear();
 
+    // we use the graham scan using vector
     for (int i = 0; i < n; ++i)
     {
         while (convex_vx.size() > 1 &&
@@ -92,7 +99,7 @@ void Convex::findConvexHull_using_vector()
     }
 }
 
-/// @brief
+/// @brief find convex hull using deque
 void Convex::findConvexHull_using_deque()
 {
     int n = vx_pairs.size();
@@ -103,30 +110,40 @@ void Convex::findConvexHull_using_deque()
         return; // cannot form hull
     }
 
-    // Find point with smallest y (and leftmost if tie)
-    Point p0 = *std::min_element(vx_pairs.begin(), vx_pairs.end(), [](Point a, Point b)
-                                 { return std::make_pair(a.y, a.x) < std::make_pair(b.y, b.x); });
+    // find point with smallest y (and leftmost if tie)
+    Point p0 = *std::min_element
+    (
+                vx_pairs.begin(), vx_pairs.end(), [](Point a, Point b)
+                { 
+                return std::make_pair(a.y, a.x) < std::make_pair(b.y, b.x); 
+                }
+    );
 
-    // Sort points by polar angle with p0
-    std::sort(vx_pairs.begin(), vx_pairs.end(), [&](const Point &a, const Point &b)
-              {
+    // sort points by polar angle with p0
+    std::sort(
+                vx_pairs.begin(), vx_pairs.end(), [&](const Point &a, const Point &b)
+                {
                   int o = orientation(p0, a, b);
-                  if (o == 0)
-                      return calculate_distance(p0, a) < calculate_distance(p0, b);
-                  return o == 1; });
+                  if (o == 0) 
+                  {
+                    return calculate_distance(p0, a) < calculate_distance(p0, b);
+                  }
+                  return o == 1; 
+                }
+            );
 
     std::deque<Point> dq;
-
+        
+    // we use the Graham scan using deque
     for (int i = 0; i < n; ++i)
     {
-        while (dq.size() > 1 &&
-               orientation(*(dq.rbegin() + 1), dq.back(), vx_pairs[i]) != 1)
+        while (dq.size() > 1 && orientation(*(dq.rbegin() + 1), dq.back(), vx_pairs[i]) != 1)
         {
             dq.pop_back();
         }
         dq.push_back(vx_pairs[i]);
     }
-
+    // copy deque into convex_vx vector
     convex_vx.assign(dq.begin(), dq.end());
 }
 

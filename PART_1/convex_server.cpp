@@ -26,7 +26,7 @@ int main()
         break;
     }
 
-    // Clear newline left in input buffer after reading num_vx
+    // clear newline left in input buffer after reading num_vx
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     // create an empty convex 

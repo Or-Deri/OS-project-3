@@ -8,8 +8,10 @@
 #include "../Convex/convex.hpp"
 #include "../PART_5/reactor.hpp"
 
-#define PORT 9034
-#define BUFFER_SIZE 1024
+// beej's port
+// and a buffer size 1024
+const int PORT = 9034;
+const int BUFFER_SIZE = 1024;
 
 // a global reactor and client state
 
@@ -17,11 +19,12 @@ Reactor* global_reactor = nullptr;
 
 std::string input_buffer[FD_SETSIZE];
 
-Convex* my_conv[FD_SETSIZE] = {nullptr};
+// shared graph for all clients
+Convex* shared_conv = nullptr;
 
 
 // the client handler -
-void handle_client(int client_fd)
+void handle_clients(int client_fd)
 {
     char buffer[BUFFER_SIZE];
 
@@ -35,12 +38,6 @@ void handle_client(int client_fd)
         remove_fd_from_reactor(global_reactor, client_fd);
 
         input_buffer[client_fd].clear();
-
-        if (my_conv[client_fd])
-        {
-            delete my_conv[client_fd];
-            my_conv[client_fd] = nullptr;
-        }
 
         return;
     }
@@ -75,10 +72,10 @@ void handle_client(int client_fd)
             }
             else
             {
-                if (my_conv[client_fd])
-                    delete my_conv[client_fd];
+                if (shared_conv)
+                    delete shared_conv;
 
-                my_conv[client_fd] = new Convex(n);
+                shared_conv = new Convex(n);
 
                 response << "Send " << n << " points (x,y):\n";
             }
@@ -89,7 +86,7 @@ void handle_client(int client_fd)
             ss >> rest;
             size_t comma = rest.find(',');
 
-            if (!my_conv[client_fd])
+            if (!shared_conv)
             {
                 response << "No graph exists. Use Newgraph first.\n";
             }
@@ -102,7 +99,7 @@ void handle_client(int client_fd)
                 float x = std::stof(rest.substr(0, comma));
                 float y = std::stof(rest.substr(comma + 1));
 
-                my_conv[client_fd]->add_vx(x, y);
+                shared_conv->add_vx(x, y);
 
                 response << "Point (" << x << "," << y << ") added\n";
             }
@@ -113,7 +110,7 @@ void handle_client(int client_fd)
             ss >> rest;
             size_t comma = rest.find(',');
 
-            if (!my_conv[client_fd])
+            if (!shared_conv)
             {
                 response << "No graph exists. Use Newgraph first.\n";
             }
@@ -126,21 +123,21 @@ void handle_client(int client_fd)
                 float x = std::stof(rest.substr(0, comma));
                 float y = std::stof(rest.substr(comma + 1));
 
-                my_conv[client_fd]->remove_vx(x, y);
+                shared_conv->remove_vx(x, y);
 
                 response << "Point (" << x << "," << y << ") removed\n";
             }
         }
         else if (cmd == "CH")
         {
-            if (!my_conv[client_fd])
+            if (!shared_conv)
             {
                 response << "No graph exists.\n";
             }
             else
             {
-                my_conv[client_fd]->findConvexHull_using_vector();
-                auto hull = my_conv[client_fd]->get_convex_vx();
+                shared_conv->findConvexHull_using_vector();
+                auto hull = shared_conv->get_convex_vx();
 
                 if (hull.size() < 3)
                 {
@@ -148,7 +145,7 @@ void handle_client(int client_fd)
                 }
                 else
                 {
-                    float area = my_conv[client_fd]->calculate_area();
+                    float area = shared_conv->calculate_area();
                     response << "Convex hull area: " << area << "\n";
                 }
             }
@@ -181,19 +178,12 @@ void accept_client(int server_fd)
 
     input_buffer[client_fd].clear();
 
-    if (my_conv[client_fd])
-        delete my_conv[client_fd];
-
-    my_conv[client_fd] = nullptr;
-
     // register this client in the reactor
-    add_fd_to_reactor(global_reactor, client_fd, handle_client);
+    add_fd_to_reactor(global_reactor, client_fd, handle_clients);
 
-    std::string welcome = "Convex Server ready. Use commands: Newgraph, Newpoint, Removepoint, CH\n";
-    send(client_fd, welcome.c_str(), welcome.size(), 0);
 }
 
-// Main func
+// main function
 int main()
 {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -204,8 +194,8 @@ int main()
         return 1;
     }
 
-    int opt = 1;
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    int opt_val = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
 
     struct sockaddr_in address;
     address.sin_family = AF_INET;
@@ -218,25 +208,34 @@ int main()
         return 1;
     }
 
-    if (listen(server_fd, 5) < 0)
+    // listen for client connections
+    int opt = listen(server_fd, 10);
+
+    if (opt < 0)
     {
-        std::cerr << "listen failed\n";
-        return 1;
+        perror("listen");
+        close(server_fd);
+        exit(1);
     }
 
-    std::cout << "Convex Hull Server started on port " << PORT << std::endl;
+    std::cout << "convex Hull Server started on port " << PORT << std::endl;
 
     // create and run the reactor!
     global_reactor = start_reactor();
+
     add_fd_to_reactor(global_reactor, server_fd, accept_client);
+
+
     run_reactor(global_reactor);
 
     // cleanup on exit
     close(server_fd);
 
-    for (int i = 0; i < FD_SETSIZE; ++i)
-        if (my_conv[i])
-            delete my_conv[i];
+    // check if not nullptr
+    if (shared_conv != nullptr) 
+    {
+        delete shared_conv;
+    }
 
     delete global_reactor;
 

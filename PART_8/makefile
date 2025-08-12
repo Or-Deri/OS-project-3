@@ -7,7 +7,7 @@ libreacotor.a: reactor.o
 	ar rcs libreacotor.a reactor.o
 
 reactor.o: reactor.cpp reactor.hpp
-	g++ -c reactor.cpp -o reactor.o -std=c++17 -Wall
+	g++ -c reactor.cpp -o reactor.o 
 
 clean:
 	rm -f *.o libreacotor.a

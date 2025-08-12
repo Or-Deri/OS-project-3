@@ -13,7 +13,7 @@ struct Reactor {
     std::map<int, reactorFunc> file_des;
     std::mutex mtx;
 
-    int is_active = 0; // disabled by default;
+    int is_active = 0; //disabled by default;
 };
 
 Reactor* start_reactor();

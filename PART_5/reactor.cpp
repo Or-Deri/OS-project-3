@@ -61,7 +61,11 @@ int stop_reactor(Reactor *reactor)
 {
     if (reactor)
     {
+
+        // first lock 
+        std::lock_guard<std::mutex> lock(reactor->mtx);
         // we make sure its inactive
+
         reactor->is_active = 0;
         return 1;
     }
@@ -87,16 +91,22 @@ void run_reactor(Reactor *reac)
             // lock map before checking 
             std::lock_guard<std::mutex> lock(reac->mtx);
             if (reac->file_des.empty()) 
-            {
-                break;
+            {   
+                // sleep for 10 milli sec
+                // and then keep going
+                usleep(10000);
+
+                continue;
             }
 
             // set all the file descriptors in the 
             for (const auto &p : reac->file_des)
             {
                 FD_SET(p.first, &readfds);
-                if (p.first > max_fd)
+                if (p.first > max_fd) 
+                {
                     max_fd = p.first;
+                }
             }
         }
 
